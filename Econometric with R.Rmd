@@ -1,0 +1,169 @@
+---
+title: "Econometric with R"
+subtitle: "Uma tradução barata"
+author: "Nabil Murtadha"
+output: html_notebook
+---
+
+# Revisando conceitos estatísticos
+
+1.  Estimativa de parâmetros desconhecidos da população
+2.  Testando hipóteses
+3.  Intervalos de confiança
+
+```{r pacotes, message=FALSE, warning=FALSE}
+library(dplyr)
+library(MASS)
+library(readxl)
+```
+
+### Estimativa da média da população
+
+*Estimadores* são funções de dados de uma amostra da populção e *Estimativas* são valores numéricos calculados por estimadores com base na amostra.
+
+-   *Estimadores* = Variáveis aleatórias
+-   *Estimativas* = Números *não* aleatórios.
+
+Vamos supor $Y = horas.ganhas$ para graduados do ensino superior e estamos interesado em estimar a média.
+
+Pode ser que, $\bar{Y} = \frac{1}{N}\sum_{k = 1}^{N} Y_i$ é o estimador e $\bar{Y}$ é a estimativa. Para sabermos se a função é um bom estimador podemos testar a distribuição da população. Vamos testar a estimativa com a população hipotética abaixo
+
+```{r populacao, message=FALSE}
+curve(dchisq(x, df = 12),
+      from = 0,
+      to = 40,
+      ylab = "densidade",
+      xlab = "Horas ganho em Euro")
+
+
+```
+
+Agora vamos supor que a $n = 100$ observações. Vamos extrair a primeira observação ($Y_i$) e a média.
+
+```{r exemplo, message=FALSE}
+# reprodutibilidade
+set.seed(1)
+
+# amostra do gráfico acima
+amostra <- rchisq(n = 100, df = 12)
+
+amostra_1 <- amostra[1] %>% print()
+
+```
+
+Temos que a primeira observação é $8.26$ e a média da amostra é $12$, não tão distante e ainda mais sem levar em conta a variação da população. Que é $Var(Y_1) = Var(Y) = 2*12 = 24$
+
+O que é um bom estimador? Um bom estimador é aquele que não contém viés, é consistente e eficiente.
+
+**Não enviesado** = média da amostra é do estimador é igual a média da amostra. $E(\hat{\mu}_Y) = \mu_Y$
+
+**Consistencia** = Quanto maior a amostra, mais próxima queremos que que o estimativa se aproxime da média populacional. $\hat{\mu}_Y \rightarrow \mu_Y$
+
+**Variância e Eficiêcia** =  Quanto menor $Var(\hat{\mu_Y})$ melhor o estimador.
+
+# Regressão Linear com um regressor
+Apenas uma variável explicativa = $X_1$. Como exemplo usaremos a relação professor-estudante como $X_1$, e como isso afeta a performace dos estudantes representado por $Y$. Conseguiremos não apenas determinar o impacto mas também aprender sobre o sinal e a quantidade do efeito.
+
+### Regressão linear simples.
+Criando os dados hipotéticos
+```{r vetores, message=FALSE, warning=FALSE}
+# criando a amostra
+RAP <- c(15,17,19,20,22,23.5,25)
+nota <- c(680, 640, 670, 660, 630, 660, 635)
+```
+
+Na regressão simples assume-se que a relação entre a variável dependente e independente é linar de modo que:
+
+$Y = b \cdot X + a$
+
+Por enquanto, vamos supor que a relação seja descrita da função abaixo:
+
+$nota = 713 - 3\times RAP$
+
+Vamos esboçar um gráfico com os valores de `nota` e `RAP` nos eixos y e x. E também traçar a linha da função acima.
+```{r plot, message=FALSE, warning=FALSE}
+# dados
+plot(nota ~ RAP)
+
+# função
+abline(a = 713, b = -3) # intercepto e inclinação
+```
+
+Vimos que a função não passa por nenhum ponto do gráfico. Isso ocorre devido a aleatorização, dificilmente apenas um fator influencie totalmente a variável dependente, existem outros fatores que estão fora da análise que podem contribuir para a nota média da turma. 
+
+$nota = \beta_0 + \beta_1 \times RAP\ + outros fatores$
+
+Atribuiremos a diferença entre o ponto e a reta como termo de erro ($u$) e fórmula completa fica:
+
+$Y_i = \beta_0 + \beta_1X_i\ + u_i$
+
+Na equação acima, $\beta_0$ é o intercepto, $\beta_1$ é a inclinação e $u_i$ é o termo de erro.
+
+
+### Estimando os coeficientes do modelo de regressão linear
+
+Carregando a base de dados.
+```{r pacotes1, warning=FALSE}
+library(AER)
+#carregando dados para o exemplo
+data("CASchools")
+```
+
+Após o carregamento do `data.frame` vamos criar as variáveis de interesse a partir disso
+```{r manipulacao}
+# relacao aluno professor
+CASchools$RAP <- CASchools$students/CASchools$teachers
+
+# media das notas médias de matematica e leitura
+CASchools$nota<- (CASchools$read + CASchools$math)/2  
+
+# verificando as novas variaveis
+head(CASchools)
+```
+
+Agora vamos guardar as médias, desvios pedoes e os quartils das duas variáveis
+
+```{r estatistica, message=FALSE, warning=FALSE}
+# criando os vetores de media
+m_RAP <- mean(CASchools$RAP) 
+m_nota <- mean(CASchools$nota)
+
+# criando os vetores de desvio padrão
+dp_RAP <- sd(CASchools$RAP) 
+dp_nota <- sd(CASchools$nota)
+
+# classificando os quantils/porcentagens
+quantil <- c(0.10, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9)
+quant_RAP <- quantile(CASchools$RAP, quantil)
+quant_nota <- quantile(CASchools$nota, quantil)
+
+# grando a matrix/data frame com os vetores acima
+DistributionSummary <- data.frame(Media = c(m_RAP, m_nota), 
+                                  DesvioPadrão = c(dp_RAP, dp_nota), 
+                                  quantil = rbind(quant_RAP, quant_nota))
+
+DistributionSummary
+
+```
+
+A tabela acima mostra a média, desvio padrão e os quantils das variáveis que criamos em relação a todas as escolas da base de dado. Vamos agora fazer uma analise visual da relação entre `RAP` e `nota` para detectarmos algumas características e outliers.
+
+```{r plot2}
+plot(nota ~ RAP, 
+     data = CASchools,
+     main = "Grafico de pontos da nota x RAP", 
+     xlab = "RAP (X)",
+     ylab = "Nota (Y)")
+```
+
+O gráfico acima mostra que os pontos estão bem diversos e existe uma possível correlação negativa entre as variáveis, ou seja, quanto menor o tamanho da turma maior o rendimento dela.
+
+Verificando a correlação temos:
+```{r correlacao}
+# correlação
+cor(CASchools$RAP, CASchools$nota)
+```
+Assim como o gráfico sugere, o valor da correlação é negativa porém fraca no valor de `-0.23`. O desafio agora é buscar qual função linear melhor se ajusta a distribuição dos pontos acima. Utilizaremos a técnica dos _Minimos Quadrados Ordinarios_(MQO/OLS)
+
+**Mínimos Quadrados Ordinários**
+
